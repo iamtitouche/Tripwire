@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Tripwire/Tripwire.csproj" />
+  <Project Path="Tripwire.Tests/Tripwire.Tests.csproj" />
+</Solution>
