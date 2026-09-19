@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The test projects multi-target net8.0 through net11.0: the .NET 11 SDK builds everything,
+      # the older SDKs bring the runtimes the tests execute on.
+      - name: Set up .NET 8, 9 and 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      # .NET 11 is still in preview; installed separately so the preview quality does not apply above.
+      - name: Set up .NET 11 (preview)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Restore
+        run: dotnet restore Tripwire.slnx
+
+      - name: Build
+        run: dotnet build Tripwire.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: >
+          dotnet test Tripwire.slnx
+          --configuration Release
+          --no-build
+          --logger "trx;LogFilePrefix=results"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/**/*.trx
+          if-no-files-found: ignore
