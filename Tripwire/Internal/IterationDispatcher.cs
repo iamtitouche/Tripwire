@@ -41,6 +41,12 @@ internal sealed class IterationDispatcher : IDisposable
     }
 
     /// <summary>
+    /// Number of firings currently waiting for a slot. Exposed for tests, which need to observe when a
+    /// cancelled firing has given its place back rather than guess with a delay.
+    /// </summary>
+    internal int PendingCount => Volatile.Read(ref _pending);
+
+    /// <summary>
     /// Entry point of every firing. Returns as soon as the firing has been started, queued or dropped:
     /// the iteration itself is never awaited by the caller.
     /// </summary>

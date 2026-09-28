@@ -6,7 +6,7 @@ namespace Tripwire.Schedules;
 /// </summary>
 /// <remarks>
 /// Daylight saving transitions are handled: a time that does not exist on a given day (spring forward)
-/// is skipped for that day, and a time that occurs twice (fall back) occurs once.
+/// is skipped for that day, and a time that occurs twice (fall back) occurs once, at its first instance.
 /// </remarks>
 public sealed class DailySchedule : ISchedule
 {
@@ -35,6 +35,11 @@ public sealed class DailySchedule : ISchedule
     {
         var localToday = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(after, _timeZone).DateTime);
 
+        // Inside the second instance of a repeated hour, nothing of the first one is left to run: a repeated
+        // time ahead is taken in its second instance.
+        var firstInstance = !_timeZone.IsAmbiguousTime(after)
+            || _timeZone.GetUtcOffset(after) != _timeZone.GetAmbiguousTimeOffsets(after).Min();
+
         // Scan a few days to cover invalid local times (daylight saving transitions) and time zone
         // offsets that can push an occurrence to the next day.
         // Stryker disable once Equality : scanning one more day never changes the result.
@@ -51,7 +56,7 @@ public sealed class DailySchedule : ISchedule
                     continue;
                 }
 
-                var utc = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local, _timeZone));
+                var utc = ToUtc(local, firstInstance);
 
                 if (utc > after)
                 {
@@ -62,6 +67,29 @@ public sealed class DailySchedule : ISchedule
 
         // Stryker disable once all : unreachable, a valid occurrence always exists within the scanned days.
         throw new InvalidOperationException("Unable to compute the next occurrence.");
+    }
+
+    /// <summary>
+    /// Converts a valid local time to UTC, choosing the instance of a time that occurs twice as
+    /// <see cref="CronSchedule"/> does. <see cref="TimeZoneInfo.ConvertTimeToUtc(DateTime, TimeZoneInfo)"/>
+    /// would always pick the second one.
+    /// </summary>
+    private DateTimeOffset ToUtc(DateTime local, bool firstInstance)
+    {
+        TimeSpan offset;
+
+        if (_timeZone.IsAmbiguousTime(local))
+        {
+            // The first instance of a repeated hour is the one with the larger offset (daylight time).
+            var offsets = _timeZone.GetAmbiguousTimeOffsets(local);
+            offset = firstInstance ? offsets.Max() : offsets.Min();
+        }
+        else
+        {
+            offset = _timeZone.GetUtcOffset(local);
+        }
+
+        return new DateTimeOffset(local, offset).ToUniversalTime();
     }
 
     /// <inheritdoc />

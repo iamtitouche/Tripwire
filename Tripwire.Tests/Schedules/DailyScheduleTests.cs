@@ -80,7 +80,7 @@ public class DailyScheduleTests
     }
 
     [Fact]
-    public void Ambiguous_local_time_on_fall_back_runs_once()
+    public void Ambiguous_local_time_on_fall_back_runs_once_at_its_first_instance()
     {
         // 27 October 2024: 03:00 → 02:00, so 02:30 occurs twice.
         var schedule = Create(TestTimeZones.CentralEurope, new TimeOnly(2, 30));
@@ -89,8 +89,51 @@ public class DailyScheduleTests
         var first = schedule.GetNextOccurrence(now)!.Value;
         var second = schedule.GetNextOccurrence(first)!.Value;
 
-        Assert.Equal(new DateOnly(2024, 10, 27), DateOnly.FromDateTime(first.UtcDateTime));
-        Assert.Equal(new DateOnly(2024, 10, 28), DateOnly.FromDateTime(second.UtcDateTime));
+        // 02:30 CEST (UTC+2) = 00:30 UTC, then 28 October 02:30 CET (UTC+1) = 01:30 UTC.
+        Assert.Equal(new DateTimeOffset(2024, 10, 27, 0, 30, 0, TimeSpan.Zero), first);
+        Assert.Equal(new DateTimeOffset(2024, 10, 28, 1, 30, 0, TimeSpan.Zero), second);
+    }
+
+    [Fact]
+    public void Ambiguous_local_time_is_not_replayed_in_its_second_instance()
+    {
+        // 00:45 UTC is 02:45 CEST, past the first 02:30: the second one (01:30 UTC) does not run.
+        var schedule = Create(TestTimeZones.CentralEurope, new TimeOnly(2, 30));
+        var now = new DateTimeOffset(2024, 10, 27, 0, 45, 0, TimeSpan.Zero);
+
+        Assert.Equal(new DateTimeOffset(2024, 10, 28, 1, 30, 0, TimeSpan.Zero), schedule.GetNextOccurrence(now));
+    }
+
+    [Fact]
+    public void Ambiguous_local_time_runs_in_its_second_instance_when_starting_there()
+    {
+        // 01:10 UTC is 02:10 CET, the second instance: the first 02:30 is gone, the second one is ahead.
+        var schedule = Create(TestTimeZones.CentralEurope, new TimeOnly(2, 30));
+        var now = new DateTimeOffset(2024, 10, 27, 1, 10, 0, TimeSpan.Zero);
+
+        Assert.Equal(new DateTimeOffset(2024, 10, 27, 1, 30, 0, TimeSpan.Zero), schedule.GetNextOccurrence(now));
+    }
+
+    [Fact]
+    public void Ambiguous_local_time_matches_the_equivalent_cron_schedule()
+    {
+        var daily = Create(TestTimeZones.CentralEurope, new TimeOnly(2, 0), new TimeOnly(2, 30), new TimeOnly(2, 59));
+        var cron = new CronSchedule("0,30,59 2 * * *", TestTimeZones.CentralEurope);
+
+        for (var now = new DateTimeOffset(2024, 10, 26, 22, 0, 0, TimeSpan.Zero);
+             now < new DateTimeOffset(2024, 10, 27, 3, 0, 0, TimeSpan.Zero);
+             now = now.AddMinutes(1))
+        {
+            Assert.Equal(cron.GetNextOccurrence(now), daily.GetNextOccurrence(now));
+        }
+    }
+
+    [Fact]
+    public void Occurrences_are_returned_in_utc()
+    {
+        var schedule = Create(TestTimeZones.CentralEurope, new TimeOnly(9, 0));
+
+        Assert.Equal(TimeSpan.Zero, schedule.GetNextOccurrence(Jan1_0800Utc)!.Value.Offset);
     }
 
     [Fact]

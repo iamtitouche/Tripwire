@@ -412,7 +412,9 @@ public class IterationDispatcherTests
         await h.DispatchAsync(pending.Token);
 
         await pending.CancelAsync();
-        await Wait.SettleAsync();
+        // The cancelled firing gives its place back on a thread pool continuation: wait for it rather
+        // than for a fixed delay, which is not enough on a loaded CI runner.
+        await Wait.UntilAsync(() => h.Dispatcher.PendingCount == 0);
 
         // The pending slot was given back: another firing can be queued instead of dropped.
         await h.DispatchAsync();
@@ -472,7 +474,7 @@ public class IterationDispatcherTests
 
         await h.DispatchAsync();
         await Wait.UntilAsync(() => Volatile.Read(ref started) == 21);
-
+        
         finalGate.SetResult();
         await h.WhenEmptyAsync();
     }
