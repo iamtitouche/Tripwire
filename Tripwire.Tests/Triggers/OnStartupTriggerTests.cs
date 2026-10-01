@@ -1,3 +1,4 @@
+using Tripwire.Tests.Support;
 using Tripwire.Triggers;
 
 namespace Tripwire.Tests.Triggers;
@@ -10,7 +11,7 @@ public class OnStartupTriggerTests
         var trigger = new OnStartupTrigger();
         var calls = 0;
 
-        await trigger.StartAsync(_ => { calls++; return Task.CompletedTask; }, CancellationToken.None);
+        await trigger.StartAsync(_ => { calls++; return TestFiring.Accepted; }, CancellationToken.None);
 
         Assert.Equal(1, calls);
     }
@@ -21,7 +22,7 @@ public class OnStartupTriggerTests
         using var cts = new CancellationTokenSource();
         CancellationToken? captured = null;
 
-        await new OnStartupTrigger().StartAsync(ct => { captured = ct; return Task.CompletedTask; }, cts.Token);
+        await new OnStartupTrigger().StartAsync(ct => { captured = ct; return TestFiring.Accepted; }, cts.Token);
 
         Assert.Equal(cts.Token, captured);
     }

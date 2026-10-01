@@ -41,7 +41,7 @@ public class ScheduleTriggerTests
         var time = new FakeTimeProvider(Jan1_0800Utc);
         using var cts = new CancellationTokenSource();
         var calls = 0;
-        var run = new ScheduleTrigger([new TimeOnly(9, 0)], time).StartAsync(_ => { calls++; return Task.CompletedTask; }, cts.Token);
+        var run = new ScheduleTrigger([new TimeOnly(9, 0)], time).StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
 
         time.Advance(TimeSpan.FromMinutes(59));
         await Wait.SettleAsync();
@@ -70,7 +70,7 @@ public class ScheduleTriggerTests
         using var cts = new CancellationTokenSource();
         var calls = 0;
         var run = new ScheduleTrigger(new DelegateSchedule(after => after < occurrence ? occurrence : null), time)
-            .StartAsync(_ => { calls++; return Task.CompletedTask; }, cts.Token);
+            .StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
 
         for (var day = 0; day < 59; day++)
         {
@@ -95,7 +95,7 @@ public class ScheduleTriggerTests
 
         // One occurrence in an hour, then none.
         var run = new ScheduleTrigger(new DelegateSchedule(after => after < Jan1_0800Utc.AddHours(1) ? Jan1_0800Utc.AddHours(1) : null), time)
-            .StartAsync(_ => { calls++; return Task.CompletedTask; }, CancellationToken.None);
+            .StartAsync(_ => { calls++; return TestFiring.Accepted; }, CancellationToken.None);
 
         Assert.False(run.IsCompleted);
 
@@ -111,7 +111,7 @@ public class ScheduleTriggerTests
     {
         var time = new FakeTimeProvider(Jan1_0800Utc);
         using var cts = new CancellationTokenSource();
-        var run = new ScheduleTrigger([new TimeOnly(9, 0)], time).StartAsync(_ => Task.CompletedTask, cts.Token);
+        var run = new ScheduleTrigger([new TimeOnly(9, 0)], time).StartAsync(_ => TestFiring.Accepted, cts.Token);
 
         cts.Cancel();
 

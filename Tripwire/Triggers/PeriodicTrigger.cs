@@ -1,7 +1,10 @@
 namespace Tripwire.Triggers;
 
 /// <summary>
-/// Runs the service at a fixed interval. The first run happens one interval after startup.
+/// Runs the service at a fixed rate: every interval, however long the iterations take, which the
+/// service's <see cref="OverlapPolicy"/> then serializes, queues or drops. The first run happens one
+/// interval after startup. To wait a given time after the end of each iteration instead, see
+/// <see cref="FixedDelayTrigger"/>.
 /// </summary>
 public class PeriodicTrigger : IServiceTrigger
 {
@@ -19,7 +22,7 @@ public class PeriodicTrigger : IServiceTrigger
     }
 
     /// <inheritdoc />
-    public async Task StartAsync(Func<CancellationToken, Task> execute, CancellationToken cancellationToken)
+    public async Task StartAsync(Func<CancellationToken, Task<Firing>> execute, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(execute);
 

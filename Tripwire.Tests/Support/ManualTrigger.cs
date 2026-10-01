@@ -7,13 +7,13 @@ namespace Tripwire.Tests.Support;
 internal sealed class ManualTrigger : IServiceTrigger
 {
     private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private Func<CancellationToken, Task>? _execute;
+    private Func<CancellationToken, Task<Firing>>? _execute;
 
     public Task Started => _started.Task;
 
     public CancellationToken Token { get; private set; }
 
-    public Task StartAsync(Func<CancellationToken, Task> execute, CancellationToken cancellationToken)
+    public Task StartAsync(Func<CancellationToken, Task<Firing>> execute, CancellationToken cancellationToken)
     {
         _execute = execute;
         Token = cancellationToken;
@@ -24,7 +24,7 @@ internal sealed class ManualTrigger : IServiceTrigger
         return stopped.Task;
     }
 
-    public Task FireAsync()
+    public Task<Firing> FireAsync()
     {
         if (_execute is null)
         {

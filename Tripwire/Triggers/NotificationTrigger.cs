@@ -17,7 +17,7 @@ public class NotificationTrigger : IServiceTrigger
     }
 
     /// <inheritdoc />
-    public async Task StartAsync(Func<CancellationToken, Task> execute, CancellationToken cancellationToken)
+    public async Task StartAsync(Func<CancellationToken, Task<Firing>> execute, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(execute);
 

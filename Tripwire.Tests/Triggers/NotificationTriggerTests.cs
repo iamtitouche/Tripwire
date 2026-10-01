@@ -27,7 +27,7 @@ public class NotificationTriggerTests
         var notifier = new Notifier();
         using var cts = new CancellationTokenSource();
         var calls = 0;
-        var run = new NotificationTrigger(notifier).StartAsync(_ => { Interlocked.Increment(ref calls); return Task.CompletedTask; }, cts.Token);
+        var run = new NotificationTrigger(notifier).StartAsync(_ => { Interlocked.Increment(ref calls); return TestFiring.Accepted; }, cts.Token);
 
         await Wait.SettleAsync();
         Assert.Equal(0, calls);
@@ -55,7 +55,7 @@ public class NotificationTriggerTests
 
         using var cts = new CancellationTokenSource();
         var calls = 0;
-        var run = new NotificationTrigger(notifier).StartAsync(_ => { Interlocked.Increment(ref calls); return Task.CompletedTask; }, cts.Token);
+        var run = new NotificationTrigger(notifier).StartAsync(_ => { Interlocked.Increment(ref calls); return TestFiring.Accepted; }, cts.Token);
 
         await Wait.UntilAsync(() => calls == 2);
 
@@ -69,7 +69,7 @@ public class NotificationTriggerTests
         var notifier = new Notifier();
         using var cts = new CancellationTokenSource();
         CancellationToken? received = null;
-        var run = new NotificationTrigger(notifier).StartAsync(ct => { received = ct; return Task.CompletedTask; }, cts.Token);
+        var run = new NotificationTrigger(notifier).StartAsync(ct => { received = ct; return TestFiring.Accepted; }, cts.Token);
 
         notifier.Notify();
         await Wait.UntilAsync(() => received is not null);
@@ -84,7 +84,7 @@ public class NotificationTriggerTests
     public async Task Completes_cleanly_on_cancellation()
     {
         using var cts = new CancellationTokenSource();
-        var run = new NotificationTrigger(new Notifier()).StartAsync(_ => Task.CompletedTask, cts.Token);
+        var run = new NotificationTrigger(new Notifier()).StartAsync(_ => TestFiring.Accepted, cts.Token);
 
         cts.Cancel();
 

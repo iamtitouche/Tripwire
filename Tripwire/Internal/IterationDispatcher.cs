@@ -15,6 +15,8 @@ internal sealed class IterationDispatcher : IDisposable
     private readonly Action<Exception> _reportFatal;
     private readonly ILogger? _logger;
     private readonly string _serviceName;
+    private static readonly Task<Firing> DroppedFiring = Task.FromResult(Firing.Dropped);
+
     private int _pending;
 
     /// <param name="policy">Overlap policy to apply.</param>
@@ -57,16 +59,16 @@ internal sealed class IterationDispatcher : IDisposable
     /// Also observed while the firing waits for a slot. For a retry, it is cancelled if the cycle is closed
     /// or rescheduled in the meantime, so that a retry that has become pointless does not run.
     /// </param>
+    /// <returns>The firing, dropped or accepted, whose completion is that of the tracked task.</returns>
     /// <exception cref="OperationCanceledException">Either token is already cancelled.</exception>
-    public Task DispatchAsync(CancellationToken cancellationToken, CancellationToken pendingToken)
+    public Task<Firing> DispatchAsync(CancellationToken cancellationToken, CancellationToken pendingToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         pendingToken.ThrowIfCancellationRequested();
 
         if (_semaphore.Wait(0))
         {
-            _inFlight.Track(RunAsync(cancellationToken));
-            return Task.CompletedTask;
+            return Accept(RunAsync(cancellationToken));
         }
 
         var pending = Interlocked.Increment(ref _pending);
@@ -76,18 +78,23 @@ internal sealed class IterationDispatcher : IDisposable
         {
             Interlocked.Decrement(ref _pending);
             LogDropped();
-            return Task.CompletedTask;
+            return DroppedFiring;
         }
 
         LogQueued(pending);
-        _inFlight.Track(WaitForSlotThenRunAsync(cancellationToken, pendingToken));
-        return Task.CompletedTask;
+        return Accept(WaitForSlotThenRunAsync(cancellationToken, pendingToken));
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
         _semaphore.Dispose();
+    }
+
+    private Task<Firing> Accept(Task work)
+    {
+        _inFlight.Track(work);
+        return Task.FromResult(new Firing(work));
     }
 
     private void LogDropped()

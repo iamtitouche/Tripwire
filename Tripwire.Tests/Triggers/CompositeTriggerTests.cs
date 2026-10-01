@@ -34,7 +34,7 @@ public class CompositeTriggerTests
         var b = new ManualTrigger();
         using var cts = new CancellationTokenSource();
         var calls = 0;
-        var run = new CompositeTrigger(a, b).StartAsync(_ => { calls++; return Task.CompletedTask; }, cts.Token);
+        var run = new CompositeTrigger(a, b).StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
         await Task.WhenAll(a.Started, b.Started);
 
         await a.FireAsync();
@@ -52,7 +52,7 @@ public class CompositeTriggerTests
     {
         var trigger = new CompositeTrigger(new OnStartupTrigger(), new OnStartupTrigger());
 
-        var run = trigger.StartAsync(_ => Task.CompletedTask, CancellationToken.None);
+        var run = trigger.StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
 
         await run;
         Assert.True(run.IsCompletedSuccessfully);
@@ -64,7 +64,7 @@ public class CompositeTriggerTests
         var a = new ManualTrigger();
         var b = new ManualTrigger();
         using var cts = new CancellationTokenSource();
-        var run = new CompositeTrigger(a, b).StartAsync(_ => Task.CompletedTask, cts.Token);
+        var run = new CompositeTrigger(a, b).StartAsync(_ => TestFiring.Accepted, cts.Token);
         await Task.WhenAll(a.Started, b.Started);
         await Wait.SettleAsync();
         Assert.False(run.IsCompleted);   // children are running: the composite must not complete
@@ -82,7 +82,7 @@ public class CompositeTriggerTests
     {
         var sibling = new ManualTrigger();
         var failing = new DelegateTrigger(async (_, _) => { await Task.Yield(); throw new InvalidOperationException("boom"); });
-        var run = new CompositeTrigger(sibling, failing).StartAsync(_ => Task.CompletedTask, CancellationToken.None);
+        var run = new CompositeTrigger(sibling, failing).StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => run);
 
@@ -100,7 +100,7 @@ public class CompositeTriggerTests
             await siblingStopped.Task;   // takes its time to wind down after cancellation
         });
         var failing = new DelegateTrigger(async (_, _) => { await Task.Yield(); throw new InvalidOperationException("boom"); });
-        var run = new CompositeTrigger(sibling, failing).StartAsync(_ => Task.CompletedTask, CancellationToken.None);
+        var run = new CompositeTrigger(sibling, failing).StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
 
         await Wait.SettleAsync();
         Assert.False(run.IsCompleted);
@@ -114,7 +114,7 @@ public class CompositeTriggerTests
     {
         var sibling = new ManualTrigger();
         var failing = new DelegateTrigger((_, _) => throw new InvalidOperationException("sync boom"));
-        var run = new CompositeTrigger(sibling, failing).StartAsync(_ => Task.CompletedTask, CancellationToken.None);
+        var run = new CompositeTrigger(sibling, failing).StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => run);
 
@@ -127,7 +127,7 @@ public class CompositeTriggerTests
     {
         var neverEnding = new ManualTrigger();
         var failing = new DelegateTrigger(async (_, _) => { await Task.Yield(); throw new InvalidOperationException("boom"); });
-        var run = new CompositeTrigger(neverEnding, failing).StartAsync(_ => Task.CompletedTask, CancellationToken.None);
+        var run = new CompositeTrigger(neverEnding, failing).StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
 
         var completed = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(2)));
 

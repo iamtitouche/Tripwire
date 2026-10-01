@@ -21,7 +21,7 @@ public class IterationDispatcherTests
             Dispatcher = new IterationDispatcher(policy, InFlight, iteration, Fatal.Add, Logger, "Svc");
         }
 
-        public Task DispatchAsync(CancellationToken pendingToken = default)
+        public Task<Firing> DispatchAsync(CancellationToken pendingToken = default)
         {
             return Dispatcher.DispatchAsync(CancellationToken.None, pendingToken);
         }
@@ -201,6 +201,92 @@ public class IterationDispatcherTests
         await h.WhenEmptyAsync();
 
         Assert.Empty(h.Logger.Entries);
+    }
+
+    // --- Firing outcome ---------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Started_firing_completes_when_its_iteration_completes()
+    {
+        var body = new Blocking();
+        using var h = new Harness(OverlapPolicy.Wait, body.RunAsync);
+
+        var firing = await h.DispatchAsync();
+        await Wait.UntilAsync(() => body.Started == 1);
+
+        Assert.False(firing.IsDropped);
+        Assert.False(firing.Completion.IsCompleted);
+
+        body.ReleaseAll();
+        await firing.Completion.WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public async Task Queued_firing_completes_when_its_own_iteration_completes()
+    {
+        var body = new Blocking();
+        using var h = new Harness(OverlapPolicy.Wait, body.RunAsync);
+
+        var running = await h.DispatchAsync();
+        var queued = await h.DispatchAsync();
+        await Wait.UntilAsync(() => body.Started == 1);
+
+        Assert.False(queued.IsDropped);
+
+        body.ReleaseCurrent();
+        await running.Completion.WaitAsync(TimeSpan.FromSeconds(2));
+        await Wait.UntilAsync(() => body.Started == 2);
+        Assert.False(queued.Completion.IsCompleted);
+
+        body.ReleaseAll();
+        await queued.Completion.WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public async Task Dropped_firing_is_reported_as_dropped_and_already_complete()
+    {
+        var body = new Blocking();
+        using var h = new Harness(OverlapPolicy.Skip, body.RunAsync);
+
+        await h.DispatchAsync();
+        await Wait.UntilAsync(() => body.Started == 1);
+        var dropped = await h.DispatchAsync();
+
+        Assert.True(dropped.IsDropped);
+        Assert.True(dropped.Completion.IsCompletedSuccessfully);
+
+        body.ReleaseAll();
+        await h.WhenEmptyAsync();
+    }
+
+    [Fact]
+    public async Task Cancelled_queued_firing_completes_without_running()
+    {
+        var body = new Blocking();
+        using var h = new Harness(OverlapPolicy.Wait, body.RunAsync);
+        using var pending = new CancellationTokenSource();
+
+        await h.DispatchAsync();
+        var queued = await h.DispatchAsync(pending.Token);
+        await pending.CancelAsync();
+
+        await queued.Completion.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal(1, body.Started);
+
+        body.ReleaseAll();
+        await h.WhenEmptyAsync();
+    }
+
+    [Fact]
+    public async Task Failed_iteration_completes_its_firing_without_faulting()
+    {
+        using var h = new Harness(OverlapPolicy.Wait, _ => throw new InvalidOperationException("boom"));
+
+        var firing = await h.DispatchAsync();
+
+        await firing.Completion.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.True(firing.Completion.IsCompletedSuccessfully);
+        Assert.IsType<InvalidOperationException>(Assert.Single(h.Fatal));
     }
 
     // --- Skip and bounded queues ----------------------------------------------------------------

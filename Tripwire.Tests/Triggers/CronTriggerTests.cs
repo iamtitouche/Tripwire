@@ -21,7 +21,7 @@ public class CronTriggerTests
         var time = new FakeTimeProvider(Jan1_0800Utc);
         using var cts = new CancellationTokenSource();
         var calls = 0;
-        var run = new CronTrigger("30 13 * * MON-FRI", time, TestTimeZones.UtcPlus5).StartAsync(_ => { calls++; return Task.CompletedTask; }, cts.Token);
+        var run = new CronTrigger("30 13 * * MON-FRI", time, TestTimeZones.UtcPlus5).StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
 
         time.Advance(TimeSpan.FromMinutes(29));
         await Wait.SettleAsync();

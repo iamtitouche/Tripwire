@@ -31,7 +31,7 @@ public class CompositeTrigger : IServiceTrigger
     /// If one trigger fails, the others are stopped and the exception is propagated,
     /// just as a single trigger would.
     /// </remarks>
-    public async Task StartAsync(Func<CancellationToken, Task> execute, CancellationToken cancellationToken)
+    public async Task StartAsync(Func<CancellationToken, Task<Firing>> execute, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(execute);
 

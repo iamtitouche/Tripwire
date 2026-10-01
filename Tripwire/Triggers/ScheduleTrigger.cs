@@ -46,7 +46,7 @@ public class ScheduleTrigger : IServiceTrigger
     /// <remarks>
     /// Completes when the schedule has no next occurrence, like <see cref="OnStartupTrigger"/> once it has fired.
     /// </remarks>
-    public async Task StartAsync(Func<CancellationToken, Task> execute, CancellationToken cancellationToken)
+    public async Task StartAsync(Func<CancellationToken, Task<Firing>> execute, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(execute);
 

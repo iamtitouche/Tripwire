@@ -29,7 +29,7 @@ public class PeriodicTriggerTests
         var time = new FakeTimeProvider();
         using var cts = new CancellationTokenSource();
         var calls = 0;
-        var run = new PeriodicTrigger(Interval, time).StartAsync(_ => { calls++; return Task.CompletedTask; }, cts.Token);
+        var run = new PeriodicTrigger(Interval, time).StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
 
         time.Advance(Interval - TimeSpan.FromMilliseconds(1));
         await Wait.SettleAsync();
@@ -46,7 +46,7 @@ public class PeriodicTriggerTests
         var time = new FakeTimeProvider();
         using var cts = new CancellationTokenSource();
         var calls = 0;
-        var run = new PeriodicTrigger(Interval, time).StartAsync(_ => { calls++; return Task.CompletedTask; }, cts.Token);
+        var run = new PeriodicTrigger(Interval, time).StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
 
         for (var expected = 1; expected <= 3; expected++)
         {
@@ -64,7 +64,7 @@ public class PeriodicTriggerTests
     {
         var time = new FakeTimeProvider();
         using var cts = new CancellationTokenSource();
-        var run = new PeriodicTrigger(Interval, time).StartAsync(_ => Task.CompletedTask, cts.Token);
+        var run = new PeriodicTrigger(Interval, time).StartAsync(_ => TestFiring.Accepted, cts.Token);
 
         cts.Cancel();
 

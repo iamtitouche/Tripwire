@@ -80,8 +80,8 @@ public abstract class TriggeredHostedService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        // Iterations are never awaited by the trigger: the dispatcher tracks them, and a fatal failure
-        // surfaces through _fatal.
+        // Iterations are never awaited by the service: the dispatcher tracks them, and a fatal failure
+        // surfaces through _fatal. A trigger may await one through the returned Firing.
         var trigger = _trigger.StartAsync(ct => _dispatcher.DispatchAsync(ct, ct), linked.Token);
 
         if (await Task.WhenAny(trigger, _fatal.Task) == trigger)

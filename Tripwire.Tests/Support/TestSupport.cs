@@ -6,9 +6,9 @@ namespace Tripwire.Tests.Support;
 /// <summary>
 /// Trigger defined by a lambda, for edge cases (synchronous failure, hanging, etc.).
 /// </summary>
-internal sealed class DelegateTrigger(Func<Func<CancellationToken, Task>, CancellationToken, Task> start) : IServiceTrigger
+internal sealed class DelegateTrigger(Func<Func<CancellationToken, Task<Firing>>, CancellationToken, Task> start) : IServiceTrigger
 {
-    public Task StartAsync(Func<CancellationToken, Task> execute, CancellationToken cancellationToken)
+    public Task StartAsync(Func<CancellationToken, Task<Firing>> execute, CancellationToken cancellationToken)
     {
         return start(execute, cancellationToken);
     }
@@ -25,7 +25,7 @@ internal sealed class SignallingTrigger(IServiceTrigger inner) : IServiceTrigger
 
     public Task Started => _started.Task;
 
-    public Task StartAsync(Func<CancellationToken, Task> execute, CancellationToken cancellationToken)
+    public Task StartAsync(Func<CancellationToken, Task<Firing>> execute, CancellationToken cancellationToken)
     {
         // The inner trigger runs synchronously up to its first await: its timer exists when this returns.
         var run = inner.StartAsync(execute, cancellationToken);
@@ -140,4 +140,15 @@ internal static class TestTimeZones
         ]);
 
     public static readonly TimeZoneInfo UtcPlus5 = TimeZoneInfo.CreateCustomTimeZone("Test/UTC+5", TimeSpan.FromHours(5), "UTC+5", "UTC+5");
+}
+
+/// <summary>
+/// Results for the <c>execute</c> callback handed to a trigger under test.
+/// </summary>
+internal static class TestFiring
+{
+    /// <summary>
+    /// An accepted firing that is already over.
+    /// </summary>
+    public static Task<Firing> Accepted { get; } = Task.FromResult(new Firing(Task.CompletedTask));
 }

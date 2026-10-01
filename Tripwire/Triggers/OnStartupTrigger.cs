@@ -6,7 +6,7 @@ namespace Tripwire.Triggers;
 public class OnStartupTrigger : IServiceTrigger
 {
     /// <inheritdoc />
-    public Task StartAsync(Func<CancellationToken, Task> execute, CancellationToken cancellationToken)
+    public Task StartAsync(Func<CancellationToken, Task<Firing>> execute, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(execute);
 
