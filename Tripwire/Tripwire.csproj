@@ -9,10 +9,26 @@
 
     <PropertyGroup Label="Package">
         <PackageId>Tripwire</PackageId>
+        <Authors>Titouan SADOUN</Authors>
         <Description>Trigger ecosystem for .NET hosted services: run a BackgroundService on startup, periodically, on a daily schedule, on a cron expression, or any combination of these.</Description>
         <PackageTags>hosting;backgroundservice;hostedservice;scheduler;trigger;periodic;cron</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Copyright>Copyright (c) 2026 Titouan Sadoun</Copyright>
+        <PackageProjectUrl>https://github.com/iamtitouche/Tripwire</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/iamtitouche/Tripwire.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Symbols">
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
     <ItemGroup>

@@ -11,7 +11,8 @@ namespace Tripwire.Schedules;
 /// <para>
 /// Fields accept <c>*</c>, lists (<c>1,15</c>), ranges (<c>MON-FRI</c>), steps (<c>*/15</c>, <c>1-30/5</c>,
 /// <c>5/10</c>) and three-letter names for months and days of week (case-insensitive). <c>0</c> and <c>7</c>
-/// both mean Sunday. When both the day of month and the day of week are restricted. The macros <c>@yearly</c> (<c>@annually</c>),
+/// both mean Sunday. When both the day of month and the day of week are restricted, a day matches if either
+/// does, as in Vixie cron. The macros <c>@yearly</c> (<c>@annually</c>),
 /// <c>@monthly</c>, <c>@weekly</c>, <c>@daily</c> (<c>@midnight</c>) and <c>@hourly</c> are accepted.
 /// </para>
 /// <para>

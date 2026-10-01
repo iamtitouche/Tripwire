@@ -48,8 +48,7 @@ public class Notifier
 /// <item>
 /// <description>
 /// For an on-demand run requested from outside (an endpoint, an admin command), tag it with the
-/// <b>service</b> to run: <c>Notifier&lt;EnrichmentService&gt;</c>. The caller names its target, which
-/// is what <c>MapTrigger&lt;TService&gt;</c> does.
+/// <b>service</b> to run: <c>Notifier&lt;EnrichmentService&gt;</c>. The caller names its target.
 /// </description>
 /// </item>
 /// </list>
