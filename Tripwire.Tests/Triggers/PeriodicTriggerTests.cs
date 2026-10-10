@@ -26,12 +26,12 @@ public class PeriodicTriggerTests
     [Fact]
     public async Task Does_not_fire_before_the_first_interval()
     {
-        var time = new FakeTimeProvider();
+        var timeProvider = new FakeTimeProvider();
         using var cts = new CancellationTokenSource();
         var calls = 0;
-        var run = new PeriodicTrigger(Interval, time).StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
+        var run = new PeriodicTrigger(Interval, timeProvider).StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
 
-        time.Advance(Interval - TimeSpan.FromMilliseconds(1));
+        timeProvider.Advance(Interval - TimeSpan.FromMilliseconds(1));
         await Wait.SettleAsync();
 
         Assert.Equal(0, calls);
@@ -43,14 +43,14 @@ public class PeriodicTriggerTests
     [Fact]
     public async Task Fires_once_per_interval()
     {
-        var time = new FakeTimeProvider();
+        var timeProvider = new FakeTimeProvider();
         using var cts = new CancellationTokenSource();
         var calls = 0;
-        var run = new PeriodicTrigger(Interval, time).StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
+        var run = new PeriodicTrigger(Interval, timeProvider).StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
 
         for (var expected = 1; expected <= 3; expected++)
         {
-            time.Advance(Interval);
+            timeProvider.Advance(Interval);
             await Wait.UntilAsync(() => calls == expected);
         }
 
@@ -62,9 +62,9 @@ public class PeriodicTriggerTests
     [Fact]
     public async Task Completes_cleanly_on_cancellation()
     {
-        var time = new FakeTimeProvider();
+        var timeProvider = new FakeTimeProvider();
         using var cts = new CancellationTokenSource();
-        var run = new PeriodicTrigger(Interval, time).StartAsync(_ => TestFiring.Accepted, cts.Token);
+        var run = new PeriodicTrigger(Interval, timeProvider).StartAsync(_ => TestFiring.Accepted, cts.Token);
 
         await cts.CancelAsync();
 
@@ -75,10 +75,10 @@ public class PeriodicTriggerTests
     [Fact]
     public async Task Propagates_exceptions_from_execute()
     {
-        var time = new FakeTimeProvider();
-        var run = new PeriodicTrigger(Interval, time).StartAsync(_ => throw new InvalidOperationException("boom"), CancellationToken.None);
+        var timeProvider = new FakeTimeProvider();
+        var run = new PeriodicTrigger(Interval, timeProvider).StartAsync(_ => throw new InvalidOperationException("boom"), CancellationToken.None);
 
-        time.Advance(Interval);
+        timeProvider.Advance(Interval);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => run);
     }

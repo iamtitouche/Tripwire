@@ -127,11 +127,11 @@ public class TriggeredHostedServiceTests
     [Fact]
     public async Task Periodic_ticks_landing_during_a_slow_iteration_are_queued_not_coalesced()
     {
-        var time = new FakeTimeProvider();
+        var timeProvider = new FakeTimeProvider();
         var logger = new TestLogger();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var calls = 0;
-        var trigger = new SignallingTrigger(new PeriodicTrigger(TimeSpan.FromMinutes(1), time));
+        var trigger = new SignallingTrigger(new PeriodicTrigger(TimeSpan.FromMinutes(1), timeProvider));
         var service = new TestService(
             trigger,
             async _ => { Interlocked.Increment(ref calls); await gate.Task; },
@@ -141,11 +141,11 @@ public class TriggeredHostedServiceTests
 
         // Each tick is let through before the next one: PeriodicTimer itself coalesces ticks that land
         // before the loop is back waiting, which a real clock never provokes when execute returns at once.
-        time.Advance(TimeSpan.FromMinutes(1));
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
         await Wait.UntilAsync(() => calls == 1);
-        time.Advance(TimeSpan.FromMinutes(1));
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
         await Wait.UntilAsync(() => logger.Warnings.Count() == 1);
-        time.Advance(TimeSpan.FromMinutes(1));
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
         await Wait.UntilAsync(() => logger.Warnings.Count() == 2);
         Assert.Equal(1, calls);
 
@@ -158,20 +158,20 @@ public class TriggeredHostedServiceTests
     [Fact]
     public async Task Scheduled_times_landing_during_a_slow_iteration_are_queued_not_lost()
     {
-        var time = new FakeTimeProvider(new DateTimeOffset(2024, 1, 1, 7, 59, 0, TimeSpan.Zero));
+        var timeProvider = new FakeTimeProvider(new DateTimeOffset(2024, 1, 1, 7, 59, 0, TimeSpan.Zero));
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var calls = 0;
-        var trigger = new SignallingTrigger(new ScheduleTrigger([new TimeOnly(8, 0), new TimeOnly(8, 5)], time));
+        var trigger = new SignallingTrigger(new ScheduleTrigger([new TimeOnly(8, 0), new TimeOnly(8, 5)], timeProvider));
         var service = new TestService(
             trigger,
             async _ => { Interlocked.Increment(ref calls); await gate.Task; });
         await service.StartAsync(CancellationToken.None);
         await trigger.Started;
 
-        time.Advance(TimeSpan.FromMinutes(1));      // 08:00
+        timeProvider.Advance(TimeSpan.FromMinutes(1));      // 08:00
         await Wait.UntilAsync(() => calls == 1);
         await Wait.SettleAsync();                   // the trigger is back waiting for 08:05
-        time.Advance(TimeSpan.FromMinutes(10));     // 08:10: 08:05 landed while the iteration was running
+        timeProvider.Advance(TimeSpan.FromMinutes(10));     // 08:10: 08:05 landed while the iteration was running
         await Wait.SettleAsync();
         Assert.Equal(1, calls);
 
@@ -184,11 +184,11 @@ public class TriggeredHostedServiceTests
     [Fact]
     public async Task Skip_drops_periodic_ticks_landing_during_a_slow_iteration()
     {
-        var time = new FakeTimeProvider();
+        var timeProvider = new FakeTimeProvider();
         var logger = new TestLogger();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var calls = 0;
-        var trigger = new SignallingTrigger(new PeriodicTrigger(TimeSpan.FromMinutes(1), time));
+        var trigger = new SignallingTrigger(new PeriodicTrigger(TimeSpan.FromMinutes(1), timeProvider));
         var service = new TestService(
             trigger,
             async _ => { Interlocked.Increment(ref calls); await gate.Task; },
@@ -197,11 +197,11 @@ public class TriggeredHostedServiceTests
         await service.StartAsync(CancellationToken.None);
         await trigger.Started;
 
-        time.Advance(TimeSpan.FromMinutes(1));
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
         await Wait.UntilAsync(() => calls == 1);
-        time.Advance(TimeSpan.FromMinutes(1));
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
         await Wait.UntilAsync(() => logger.Informations.Count(e => e.Message.Contains("skipped")) == 1);
-        time.Advance(TimeSpan.FromMinutes(1));
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
         await Wait.UntilAsync(() => logger.Informations.Count(e => e.Message.Contains("skipped")) == 2);
 
         gate.SetResult();
@@ -257,13 +257,13 @@ public class TriggeredHostedServiceTests
     public async Task Pending_retry_keeps_the_service_running_after_the_trigger_completes()
     {
         // OnStartupTrigger completes right away; the service must stay alive while a retry is pending.
-        var time = new FakeTimeProvider();
+        var timeProvider = new FakeTimeProvider();
         var attempts = 0;
         var service = new TestService(
             new OnStartupTrigger(),
             _ => { attempts++; return attempts < 2 ? throw new InvalidOperationException("boom") : Task.CompletedTask; },
             failureHandling: FailureHandlingMode.Retry(maxAttempts: 3, delay: TimeSpan.FromMinutes(10), maxDelay: TimeSpan.FromMinutes(10)),
-            timeProvider: time);
+            timeProvider: timeProvider);
 
         await service.StartAsync(CancellationToken.None);
         await Wait.UntilAsync(() => attempts == 1);
@@ -271,7 +271,7 @@ public class TriggeredHostedServiceTests
         Assert.False(service.ExecuteTask!.IsCompleted);
 
         // A ten-minute delay can only elapse through the injected TimeProvider.
-        time.Advance(TimeSpan.FromMinutes(10));
+        timeProvider.Advance(TimeSpan.FromMinutes(10));
         await Wait.UntilAsync(() => attempts == 2);
         await service.ExecuteTask.WaitAsync(TimeSpan.FromSeconds(2));
 
@@ -281,17 +281,17 @@ public class TriggeredHostedServiceTests
     [Fact]
     public async Task Pending_retry_is_interrupted_cleanly_by_shutdown()
     {
-        var time = new FakeTimeProvider();
+        var timeProvider = new FakeTimeProvider();
         var attempts = 0;
         var (trigger, service) = await StartAsync(
             _ => { attempts++; throw new InvalidOperationException("boom"); },
-            failureHandling: FailureHandlingMode.Retry(maxAttempts: 5, delay: TimeSpan.FromMinutes(1)), timeProvider: time);
+            failureHandling: FailureHandlingMode.Retry(maxAttempts: 5, delay: TimeSpan.FromMinutes(1)), timeProvider: timeProvider);
 
         await trigger.FireAsync();
         await Wait.UntilAsync(() => attempts == 1);
 
         await service.StopAsync(CancellationToken.None);
-        time.Advance(TimeSpan.FromMinutes(5));
+        timeProvider.Advance(TimeSpan.FromMinutes(5));
         await Wait.SettleAsync();
 
         Assert.Equal(1, attempts);
@@ -428,7 +428,7 @@ public class TriggeredHostedServiceTests
     [Fact]
     public async Task Wait_cancels_a_retry_still_waiting_for_its_slot_when_the_running_iteration_succeeds()
     {
-        var time = new FakeTimeProvider();
+        var timeProvider = new FakeTimeProvider();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var attempts = 0;
         var (trigger, service) = await StartAsync(
@@ -438,14 +438,14 @@ public class TriggeredHostedServiceTests
                 if (attempt == 1) throw new InvalidOperationException("boom");
                 await gate.Task;
             },
-            OverlapPolicy.Wait, FailureHandlingMode.Retry(maxAttempts: 3, delay: TimeSpan.FromSeconds(1)), timeProvider: time);
+            OverlapPolicy.Wait, FailureHandlingMode.Retry(maxAttempts: 3, delay: TimeSpan.FromSeconds(1)), timeProvider: timeProvider);
 
         await trigger.FireAsync();                     // failure: retry in 1 s
         await Wait.UntilAsync(() => attempts == 1);
         await trigger.FireAsync();                     // another firing starts and holds the slot
         await Wait.UntilAsync(() => attempts == 2);
 
-        time.Advance(TimeSpan.FromSeconds(1));         // the retry fires and waits for the slot
+        timeProvider.Advance(TimeSpan.FromSeconds(1));         // the retry fires and waits for the slot
         await Wait.SettleAsync();
 
         gate.SetResult();                              // the running iteration succeeds: cycle closed
@@ -457,7 +457,7 @@ public class TriggeredHostedServiceTests
     [Fact]
     public async Task Skip_drops_a_retry_landing_during_an_iteration()
     {
-        var time = new FakeTimeProvider();
+        var timeProvider = new FakeTimeProvider();
         var logger = new TestLogger();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var attempts = 0;
@@ -468,14 +468,14 @@ public class TriggeredHostedServiceTests
                 if (attempt == 1) throw new InvalidOperationException("boom");
                 await gate.Task;
             },
-            OverlapPolicy.Skip, FailureHandlingMode.Retry(maxAttempts: 3, delay: TimeSpan.FromSeconds(1)), logger, time);
+            OverlapPolicy.Skip, FailureHandlingMode.Retry(maxAttempts: 3, delay: TimeSpan.FromSeconds(1)), logger, timeProvider);
 
         await trigger.FireAsync();
         await Wait.UntilAsync(() => attempts == 1);
         await trigger.FireAsync();
         await Wait.UntilAsync(() => attempts == 2);
 
-        time.Advance(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(TimeSpan.FromSeconds(1));
         await Wait.UntilAsync(() => logger.Informations.Any(e => e.Message.Contains("skipped")));
 
         gate.SetResult();
@@ -487,7 +487,7 @@ public class TriggeredHostedServiceTests
     [Fact]
     public async Task Concurrent_allows_a_retry_and_a_regular_iteration_at_the_same_time()
     {
-        var time = new FakeTimeProvider();
+        var timeProvider = new FakeTimeProvider();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var attempts = 0;
         var inFlight = 0;
@@ -498,10 +498,10 @@ public class TriggeredHostedServiceTests
                 Interlocked.Increment(ref inFlight);
                 await gate.Task;
             },
-            OverlapPolicy.Concurrent(2), FailureHandlingMode.Retry(maxAttempts: 3, delay: TimeSpan.FromSeconds(1)), timeProvider: time);
+            OverlapPolicy.Concurrent(2), FailureHandlingMode.Retry(maxAttempts: 3, delay: TimeSpan.FromSeconds(1)), timeProvider: timeProvider);
 
         await trigger.FireAsync();                     // failure: retry in 1 s
-        time.Advance(TimeSpan.FromSeconds(1));         // the retry starts
+        timeProvider.Advance(TimeSpan.FromSeconds(1));         // the retry starts
         await Wait.UntilAsync(() => inFlight == 1);
 
         await trigger.FireAsync();                     // a regular firing starts alongside

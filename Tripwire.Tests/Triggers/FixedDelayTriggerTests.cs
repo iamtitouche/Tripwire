@@ -91,16 +91,16 @@ public class FixedDelayTriggerTests
     [Fact]
     public async Task First_run_waits_the_delay_by_default()
     {
-        var time = new CountingTimeProvider();
+        var timeProvider = new CountingTimeProvider();
         var iterations = new Iterations();
         using var cts = new CancellationTokenSource();
-        var run = new FixedDelayTrigger(Delay, timeProvider: time).StartAsync(iterations.ExecuteAsync, cts.Token);
+        var run = new FixedDelayTrigger(Delay, timeProvider: timeProvider).StartAsync(iterations.ExecuteAsync, cts.Token);
 
-        time.Advance(Delay - Tick);
+        timeProvider.Advance(Delay - Tick);
         await Wait.SettleAsync();
         Assert.Equal(0, iterations.Calls);
 
-        time.Advance(Tick);
+        timeProvider.Advance(Tick);
         await Wait.UntilAsync(() => iterations.Calls == 1);
 
         await cts.CancelAsync();
@@ -123,12 +123,12 @@ public class FixedDelayTriggerTests
     [Fact]
     public async Task Custom_initial_delay_is_waited_before_the_first_run()
     {
-        var time = new CountingTimeProvider();
+        var timeProvider = new CountingTimeProvider();
         var iterations = new Iterations();
         using var cts = new CancellationTokenSource();
-        var run = new FixedDelayTrigger(Delay, TimeSpan.FromSeconds(3), time).StartAsync(iterations.ExecuteAsync, cts.Token);
+        var run = new FixedDelayTrigger(Delay, TimeSpan.FromSeconds(3), timeProvider).StartAsync(iterations.ExecuteAsync, cts.Token);
 
-        time.Advance(TimeSpan.FromSeconds(3));
+        timeProvider.Advance(TimeSpan.FromSeconds(3));
         await Wait.UntilAsync(() => iterations.Calls == 1);
 
         await cts.CancelAsync();
@@ -138,25 +138,25 @@ public class FixedDelayTriggerTests
     [Fact]
     public async Task Delay_starts_when_the_iteration_completes()
     {
-        var time = new CountingTimeProvider();
+        var timeProvider = new CountingTimeProvider();
         var iterations = new Iterations();
         using var cts = new CancellationTokenSource();
-        var run = new FixedDelayTrigger(Delay, TimeSpan.Zero, time).StartAsync(iterations.ExecuteAsync, cts.Token);
+        var run = new FixedDelayTrigger(Delay, TimeSpan.Zero, timeProvider).StartAsync(iterations.ExecuteAsync, cts.Token);
         await Wait.UntilAsync(() => iterations.Calls == 1);
 
         // However long the iteration takes, nothing fires while it runs.
-        time.Advance(Delay * 5);
+        timeProvider.Advance(Delay * 5);
         await Wait.SettleAsync();
         Assert.Equal(1, iterations.Calls);
 
         iterations.CompleteCurrent();
-        await Wait.UntilAsync(() => time.TimersCreated == 1);
+        await Wait.UntilAsync(() => timeProvider.TimersCreated == 1);
 
-        time.Advance(Delay - Tick);
+        timeProvider.Advance(Delay - Tick);
         await Wait.SettleAsync();
         Assert.Equal(1, iterations.Calls);
 
-        time.Advance(Tick);
+        timeProvider.Advance(Tick);
         await Wait.UntilAsync(() => iterations.Calls == 2);
 
         await cts.CancelAsync();
@@ -166,13 +166,13 @@ public class FixedDelayTriggerTests
     [Fact]
     public async Task Dropped_firing_starts_the_next_delay()
     {
-        var time = new CountingTimeProvider();
+        var timeProvider = new CountingTimeProvider();
         var iterations = new Iterations { Drop = true };
         using var cts = new CancellationTokenSource();
-        var run = new FixedDelayTrigger(Delay, TimeSpan.Zero, time).StartAsync(iterations.ExecuteAsync, cts.Token);
-        await Wait.UntilAsync(() => time.TimersCreated == 1);
+        var run = new FixedDelayTrigger(Delay, TimeSpan.Zero, timeProvider).StartAsync(iterations.ExecuteAsync, cts.Token);
+        await Wait.UntilAsync(() => timeProvider.TimersCreated == 1);
 
-        time.Advance(Delay);
+        timeProvider.Advance(Delay);
         await Wait.UntilAsync(() => iterations.Calls == 2);
 
         await cts.CancelAsync();
@@ -231,25 +231,25 @@ public class FixedDelayTriggerTests
     [Fact]
     public async Task Slow_iterations_of_a_service_never_pile_up()
     {
-        var time = new CountingTimeProvider();
+        var timeProvider = new CountingTimeProvider();
         var logger = new TestLogger();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var started = 0;
         var service = new TestService(
-            new FixedDelayTrigger(Delay, TimeSpan.Zero, time),
+            new FixedDelayTrigger(Delay, TimeSpan.Zero, timeProvider),
             async _ => { Interlocked.Increment(ref started); await gate.Task; },
             logger: logger);
 
         await service.StartAsync(CancellationToken.None);
         await Wait.UntilAsync(() => Volatile.Read(ref started) == 1);
 
-        time.Advance(Delay * 10);
+        timeProvider.Advance(Delay * 10);
         await Wait.SettleAsync();
         Assert.Equal(1, Volatile.Read(ref started));
 
         gate.SetResult();
-        await Wait.UntilAsync(() => time.TimersCreated == 1);
-        time.Advance(Delay);
+        await Wait.UntilAsync(() => timeProvider.TimersCreated == 1);
+        timeProvider.Advance(Delay);
         await Wait.UntilAsync(() => Volatile.Read(ref started) == 2);
 
         await service.StopAsync(CancellationToken.None);
