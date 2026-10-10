@@ -37,7 +37,7 @@ public class CronTriggerTests
         time.Advance(TimeSpan.FromHours(24));
         await Wait.UntilAsync(() => calls == 2);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 }

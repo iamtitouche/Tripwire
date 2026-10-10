@@ -36,7 +36,7 @@ public class PeriodicTriggerTests
 
         Assert.Equal(0, calls);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -54,7 +54,7 @@ public class PeriodicTriggerTests
             await Wait.UntilAsync(() => calls == expected);
         }
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
         Assert.Equal(3, calls);
     }
@@ -66,7 +66,7 @@ public class PeriodicTriggerTests
         using var cts = new CancellationTokenSource();
         var run = new PeriodicTrigger(Interval, time).StartAsync(_ => TestFiring.Accepted, cts.Token);
 
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await run;
         Assert.True(run.IsCompletedSuccessfully);

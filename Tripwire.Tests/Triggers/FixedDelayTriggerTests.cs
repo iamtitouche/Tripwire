@@ -103,7 +103,7 @@ public class FixedDelayTriggerTests
         time.Advance(Tick);
         await Wait.UntilAsync(() => iterations.Calls == 1);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -116,7 +116,7 @@ public class FixedDelayTriggerTests
 
         await Wait.UntilAsync(() => iterations.Calls == 1);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -131,7 +131,7 @@ public class FixedDelayTriggerTests
         time.Advance(TimeSpan.FromSeconds(3));
         await Wait.UntilAsync(() => iterations.Calls == 1);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -159,7 +159,7 @@ public class FixedDelayTriggerTests
         time.Advance(Tick);
         await Wait.UntilAsync(() => iterations.Calls == 2);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -175,7 +175,7 @@ public class FixedDelayTriggerTests
         time.Advance(Delay);
         await Wait.UntilAsync(() => iterations.Calls == 2);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -189,7 +189,7 @@ public class FixedDelayTriggerTests
 
         Assert.Equal(cts.Token, iterations.Token);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -199,7 +199,7 @@ public class FixedDelayTriggerTests
         using var cts = new CancellationTokenSource();
         var run = new FixedDelayTrigger(Delay, timeProvider: new FakeTimeProvider()).StartAsync(_ => TestFiring.Accepted, cts.Token);
 
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await run.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.True(run.IsCompletedSuccessfully);
@@ -213,7 +213,7 @@ public class FixedDelayTriggerTests
         var run = new FixedDelayTrigger(Delay, TimeSpan.Zero, new FakeTimeProvider()).StartAsync(iterations.ExecuteAsync, cts.Token);
         await Wait.UntilAsync(() => iterations.Calls == 1);
 
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await run.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.True(run.IsCompletedSuccessfully);

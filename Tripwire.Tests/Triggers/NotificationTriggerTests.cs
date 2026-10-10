@@ -42,7 +42,7 @@ public class NotificationTriggerTests
         await Wait.SettleAsync();
         Assert.Equal(3, calls);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -59,7 +59,7 @@ public class NotificationTriggerTests
 
         await Wait.UntilAsync(() => calls == 2);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -76,7 +76,7 @@ public class NotificationTriggerTests
 
         Assert.Equal(cts.Token, received);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -86,7 +86,7 @@ public class NotificationTriggerTests
         using var cts = new CancellationTokenSource();
         var run = new NotificationTrigger(new Notifier()).StartAsync(_ => TestFiring.Accepted, cts.Token);
 
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await run;
         Assert.True(run.IsCompletedSuccessfully);

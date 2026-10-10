@@ -63,7 +63,7 @@ public class ScheduleTriggerTests
         time.Advance(TimeSpan.FromHours(24));
         await Wait.UntilAsync(() => calls == 2);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -89,7 +89,7 @@ public class ScheduleTriggerTests
         time.Advance(TimeSpan.FromDays(1));
         await Wait.UntilAsync(() => calls == 1);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -119,7 +119,7 @@ public class ScheduleTriggerTests
         using var cts = new CancellationTokenSource();
         var run = new ScheduleTrigger([new TimeOnly(9, 0)], time).StartAsync(_ => TestFiring.Accepted, cts.Token);
 
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await run;
         Assert.True(run.IsCompletedSuccessfully);

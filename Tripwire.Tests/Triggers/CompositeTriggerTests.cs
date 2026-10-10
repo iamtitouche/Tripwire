@@ -83,7 +83,7 @@ public class CompositeTriggerTests
 
         Assert.Equal(3, calls);
 
-        cts.Cancel();
+        await cts.CancelAsync();
         await run;
     }
 
@@ -109,7 +109,7 @@ public class CompositeTriggerTests
         await Wait.SettleAsync();
         Assert.False(run.IsCompleted);   // children are running: the composite must not complete
 
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await run.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.True(run.IsCompletedSuccessfully);
