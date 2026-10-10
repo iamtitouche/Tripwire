@@ -106,6 +106,14 @@ public sealed class ExitCodeCollection
 }
 
 /// <summary>
+/// Reference instants shared by the schedule and trigger tests.
+/// </summary>
+internal static class TestDates
+{
+    public static readonly DateTimeOffset Jan1St0800Utc = new(2024, 1, 1, 8, 0, 0, TimeSpan.Zero);
+}
+
+/// <summary>
 /// Time zones built by hand, so the tests do not depend on the machine's time zone database.
 /// </summary>
 internal static class TestTimeZones

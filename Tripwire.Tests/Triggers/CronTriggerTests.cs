@@ -5,8 +5,6 @@ namespace Tripwire.Tests.Triggers;
 
 public class CronTriggerTests
 {
-    private static readonly DateTimeOffset Jan1_0800Utc = new(2024, 1, 1, 8, 0, 0, TimeSpan.Zero);
-
     [Fact]
     public void Rejects_invalid_arguments()
     {
@@ -18,7 +16,7 @@ public class CronTriggerTests
     public async Task Fires_at_the_expression_times()
     {
         // 1 January 2024 is a Monday; 13:00 in UTC+5 is 08:00 UTC.
-        var time = new FakeTimeProvider(Jan1_0800Utc);
+        var time = new FakeTimeProvider(TestDates.Jan1St0800Utc);
         using var cts = new CancellationTokenSource();
         var calls = 0;
         var run = new CronTrigger("30 13 * * MON-FRI", time, TestTimeZones.UtcPlus5).StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);

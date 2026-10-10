@@ -5,8 +5,6 @@ namespace Tripwire.Tests.Schedules;
 
 public class DailyScheduleTests
 {
-    private static readonly DateTimeOffset Jan1_0800Utc = new(2024, 1, 1, 8, 0, 0, TimeSpan.Zero);
-
     private static DailySchedule Create(TimeZoneInfo? zone = null, params TimeOnly[] times)
     {
         return new DailySchedule(times, zone);
@@ -24,7 +22,7 @@ public class DailyScheduleTests
     {
         var schedule = Create(null, new TimeOnly(9, 0), new TimeOnly(20, 0));
 
-        Assert.Equal(Jan1_0800Utc.AddHours(1), schedule.GetNextOccurrence(Jan1_0800Utc));
+        Assert.Equal(TestDates.Jan1St0800Utc.AddHours(1), schedule.GetNextOccurrence(TestDates.Jan1St0800Utc));
     }
 
     [Fact]
@@ -32,7 +30,7 @@ public class DailyScheduleTests
     {
         var schedule = Create(null, new TimeOnly(8, 0), new TimeOnly(20, 0));
 
-        Assert.Equal(Jan1_0800Utc.AddHours(12), schedule.GetNextOccurrence(Jan1_0800Utc));
+        Assert.Equal(TestDates.Jan1St0800Utc.AddHours(12), schedule.GetNextOccurrence(TestDates.Jan1St0800Utc));
     }
 
     [Fact]
@@ -40,7 +38,7 @@ public class DailyScheduleTests
     {
         var schedule = Create(null, new TimeOnly(6, 0));
 
-        Assert.Equal(new DateTimeOffset(2024, 1, 2, 6, 0, 0, TimeSpan.Zero), schedule.GetNextOccurrence(Jan1_0800Utc));
+        Assert.Equal(new DateTimeOffset(2024, 1, 2, 6, 0, 0, TimeSpan.Zero), schedule.GetNextOccurrence(TestDates.Jan1St0800Utc));
     }
 
     [Fact]
@@ -48,13 +46,13 @@ public class DailyScheduleTests
     {
         var schedule = Create(null, new TimeOnly(20, 0), new TimeOnly(9, 0), new TimeOnly(9, 0));
 
-        var first = schedule.GetNextOccurrence(Jan1_0800Utc)!.Value;
+        var first = schedule.GetNextOccurrence(TestDates.Jan1St0800Utc)!.Value;
         var second = schedule.GetNextOccurrence(first)!.Value;
         var third = schedule.GetNextOccurrence(second)!.Value;
 
-        Assert.Equal(Jan1_0800Utc.AddHours(1), first);
-        Assert.Equal(Jan1_0800Utc.AddHours(12), second);
-        Assert.Equal(Jan1_0800Utc.AddHours(25), third);
+        Assert.Equal(TestDates.Jan1St0800Utc.AddHours(1), first);
+        Assert.Equal(TestDates.Jan1St0800Utc.AddHours(12), second);
+        Assert.Equal(TestDates.Jan1St0800Utc.AddHours(25), third);
     }
 
     [Fact]
@@ -63,7 +61,7 @@ public class DailyScheduleTests
         // 01:00 in UTC+5 is 20:00 UTC the day before. At 08:00 UTC (13:00 local), the next one is 01:00 local tomorrow.
         var schedule = Create(TestTimeZones.UtcPlus5, new TimeOnly(1, 0));
 
-        Assert.Equal(new DateTimeOffset(2024, 1, 1, 20, 0, 0, TimeSpan.Zero), schedule.GetNextOccurrence(Jan1_0800Utc));
+        Assert.Equal(new DateTimeOffset(2024, 1, 1, 20, 0, 0, TimeSpan.Zero), schedule.GetNextOccurrence(TestDates.Jan1St0800Utc));
     }
 
     [Fact]
@@ -133,7 +131,7 @@ public class DailyScheduleTests
     {
         var schedule = Create(TestTimeZones.CentralEurope, new TimeOnly(9, 0));
 
-        Assert.Equal(TimeSpan.Zero, schedule.GetNextOccurrence(Jan1_0800Utc)!.Value.Offset);
+        Assert.Equal(TimeSpan.Zero, schedule.GetNextOccurrence(TestDates.Jan1St0800Utc)!.Value.Offset);
     }
 
     [Fact]

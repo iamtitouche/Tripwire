@@ -5,8 +5,6 @@ namespace Tripwire.Tests.Schedules;
 
 public class CronScheduleTests
 {
-    private static readonly DateTimeOffset Jan1_0800Utc = new(2024, 1, 1, 8, 0, 0, TimeSpan.Zero);
-
     private static DateTimeOffset Utc(int month, int day, int hour, int minute, int second = 0)
     {
         return new DateTimeOffset(2024, month, day, hour, minute, second, TimeSpan.Zero);
@@ -48,7 +46,7 @@ public class CronScheduleTests
     {
         var schedule = new CronSchedule("0 8 * * *");
 
-        Assert.Equal(Jan1_0800Utc.AddDays(1), schedule.GetNextOccurrence(Jan1_0800Utc));
+        Assert.Equal(TestDates.Jan1St0800Utc.AddDays(1), schedule.GetNextOccurrence(TestDates.Jan1St0800Utc));
     }
 
     [Fact]
@@ -57,7 +55,7 @@ public class CronScheduleTests
         // 01:00 in UTC+5 is 20:00 UTC the day before. At 08:00 UTC (13:00 local), the next one is 01:00 local tomorrow.
         var schedule = new CronSchedule("0 1 * * *", TestTimeZones.UtcPlus5);
 
-        Assert.Equal(Utc(1, 1, 20, 0), schedule.GetNextOccurrence(Jan1_0800Utc));
+        Assert.Equal(Utc(1, 1, 20, 0), schedule.GetNextOccurrence(TestDates.Jan1St0800Utc));
     }
 
     [Fact]
@@ -65,7 +63,7 @@ public class CronScheduleTests
     {
         var schedule = new CronSchedule("0 0 31 2 *", TestTimeZones.CentralEurope);
 
-        Assert.Null(schedule.GetNextOccurrence(Jan1_0800Utc));
+        Assert.Null(schedule.GetNextOccurrence(TestDates.Jan1St0800Utc));
 
         // Also from inside a repeated hour (27 October 2024, 00:30 UTC is 02:30 CEST, the first instance).
         Assert.Null(schedule.GetNextOccurrence(Utc(10, 27, 0, 30)));
