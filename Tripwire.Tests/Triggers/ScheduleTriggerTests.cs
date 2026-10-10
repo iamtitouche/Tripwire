@@ -1,3 +1,4 @@
+using Moq;
 using Tripwire.Tests.Support;
 using Tripwire.Triggers;
 
@@ -10,9 +11,14 @@ public class ScheduleTriggerTests
     /// <summary>
     /// Schedule defined by a lambda, to drive the trigger's loop without a real schedule.
     /// </summary>
-    private sealed class DelegateSchedule(Func<DateTimeOffset, DateTimeOffset?> next) : ISchedule
+    private static ISchedule MockSchedule(Func<DateTimeOffset, DateTimeOffset?> next)
     {
-        public DateTimeOffset? GetNextOccurrence(DateTimeOffset after) => next(after);
+        var schedule = new Mock<ISchedule>();
+        schedule
+            .Setup(s => s.GetNextOccurrence(It.IsAny<DateTimeOffset>()))
+            .Returns(next);
+
+        return schedule.Object;
     }
 
     [Fact]
@@ -69,7 +75,7 @@ public class ScheduleTriggerTests
         var occurrence = Jan1_0800Utc.AddDays(60);
         using var cts = new CancellationTokenSource();
         var calls = 0;
-        var run = new ScheduleTrigger(new DelegateSchedule(after => after < occurrence ? occurrence : null), time)
+        var run = new ScheduleTrigger(MockSchedule(after => after < occurrence ? occurrence : null), time)
             .StartAsync(_ => { calls++; return TestFiring.Accepted; }, cts.Token);
 
         for (var day = 0; day < 59; day++)
@@ -94,7 +100,7 @@ public class ScheduleTriggerTests
         var calls = 0;
 
         // One occurrence in an hour, then none.
-        var run = new ScheduleTrigger(new DelegateSchedule(after => after < Jan1_0800Utc.AddHours(1) ? Jan1_0800Utc.AddHours(1) : null), time)
+        var run = new ScheduleTrigger(MockSchedule(after => after < Jan1_0800Utc.AddHours(1) ? Jan1_0800Utc.AddHours(1) : null), time)
             .StartAsync(_ => { calls++; return TestFiring.Accepted; }, CancellationToken.None);
 
         Assert.False(run.IsCompleted);

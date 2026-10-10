@@ -4,17 +4,6 @@ using System.Diagnostics;
 namespace Tripwire.Tests.Support;
 
 /// <summary>
-/// Trigger defined by a lambda, for edge cases (synchronous failure, hanging, etc.).
-/// </summary>
-internal sealed class DelegateTrigger(Func<Func<CancellationToken, Task<Firing>>, CancellationToken, Task> start) : IServiceTrigger
-{
-    public Task StartAsync(Func<CancellationToken, Task<Firing>> execute, CancellationToken cancellationToken)
-    {
-        return start(execute, cancellationToken);
-    }
-}
-
-/// <summary>
 /// Wraps a trigger and signals when it has been started, i.e. once it is waiting on its time source.
 /// <c>BackgroundService.StartAsync</c> may return before <c>ExecuteAsync</c> has reached the trigger,
 /// so a test must not advance a <see cref="FakeTimeProvider"/> before this signal.

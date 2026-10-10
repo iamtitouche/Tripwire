@@ -1,3 +1,4 @@
+using Moq;
 using Tripwire.Tests.Support;
 using Tripwire.Triggers;
 
@@ -5,6 +6,18 @@ namespace Tripwire.Tests.Triggers;
 
 public class CompositeTriggerTests
 {
+    /// <summary>
+    /// A trigger whose <see cref="IServiceTrigger.StartAsync"/> fails asynchronously.
+    /// </summary>
+    private static IServiceTrigger FailingTrigger()
+    {
+        var trigger = new Mock<IServiceTrigger>();
+        trigger
+            .Setup(t => t.StartAsync(It.IsAny<Func<CancellationToken, Task<Firing>>>(), It.IsAny<CancellationToken>()))
+            .Returns(async () => { await Task.Yield(); throw new InvalidOperationException("boom"); });
+        return trigger.Object;
+    }
+
     [Fact]
     public void Rejects_invalid_arguments()
     {
@@ -81,7 +94,7 @@ public class CompositeTriggerTests
     public async Task Failing_child_cancels_siblings_and_propagates()
     {
         var sibling = new ManualTrigger();
-        var failing = new DelegateTrigger(async (_, _) => { await Task.Yield(); throw new InvalidOperationException("boom"); });
+        var failing = FailingTrigger();
         var run = new CompositeTrigger(sibling, failing).StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => run);
@@ -94,13 +107,16 @@ public class CompositeTriggerTests
     public async Task Failing_child_waits_for_siblings_to_stop_before_propagating()
     {
         var siblingStopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var sibling = new DelegateTrigger(async (_, ct) =>
-        {
-            await Task.Delay(Timeout.Infinite, ct).ContinueWith(_ => { }, TaskScheduler.Default);
-            await siblingStopped.Task;   // takes its time to wind down after cancellation
-        });
-        var failing = new DelegateTrigger(async (_, _) => { await Task.Yield(); throw new InvalidOperationException("boom"); });
-        var run = new CompositeTrigger(sibling, failing).StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
+        var sibling = new Mock<IServiceTrigger>();
+        sibling
+            .Setup(t => t.StartAsync(It.IsAny<Func<CancellationToken, Task<Firing>>>(), It.IsAny<CancellationToken>()))
+            .Returns(async (Func<CancellationToken, Task<Firing>> _, CancellationToken ct) =>
+            {
+                await Task.Delay(Timeout.Infinite, ct).ContinueWith(_ => { }, TaskScheduler.Default);
+                await siblingStopped.Task;   // takes its time to wind down after cancellation
+            });
+        var failing = FailingTrigger();
+        var run = new CompositeTrigger(sibling.Object, failing).StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
 
         await Wait.SettleAsync();
         Assert.False(run.IsCompleted);
@@ -113,8 +129,11 @@ public class CompositeTriggerTests
     public async Task Child_throwing_synchronously_still_cancels_already_started_siblings()
     {
         var sibling = new ManualTrigger();
-        var failing = new DelegateTrigger((_, _) => throw new InvalidOperationException("sync boom"));
-        var run = new CompositeTrigger(sibling, failing).StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
+        var failing = new Mock<IServiceTrigger>();
+        failing
+            .Setup(t => t.StartAsync(It.IsAny<Func<CancellationToken, Task<Firing>>>(), It.IsAny<CancellationToken>()))
+            .Throws(new InvalidOperationException("sync boom"));
+        var run = new CompositeTrigger(sibling, failing.Object).StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => run);
 
@@ -126,7 +145,7 @@ public class CompositeTriggerTests
     public async Task Failure_is_propagated_immediately_not_at_shutdown()
     {
         var neverEnding = new ManualTrigger();
-        var failing = new DelegateTrigger(async (_, _) => { await Task.Yield(); throw new InvalidOperationException("boom"); });
+        var failing = FailingTrigger();
         var run = new CompositeTrigger(neverEnding, failing).StartAsync(_ => TestFiring.Accepted, CancellationToken.None);
 
         var completed = await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(2)));

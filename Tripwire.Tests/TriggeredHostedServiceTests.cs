@@ -1,3 +1,4 @@
+using Moq;
 using Tripwire.Tests.Support;
 using Tripwire.Triggers;
 
@@ -105,8 +106,11 @@ public class TriggeredHostedServiceTests
     [Fact]
     public async Task Trigger_failure_faults_the_service()
     {
-        var trigger = new DelegateTrigger(async (_, _) => { await Task.Yield(); throw new InvalidOperationException("trigger boom"); });
-        var service = new TestService(trigger, Noop);
+        var trigger = new Mock<IServiceTrigger>();
+        trigger
+            .Setup(t => t.StartAsync(It.IsAny<Func<CancellationToken, Task<Firing>>>(), It.IsAny<CancellationToken>()))
+            .Returns(async () => { await Task.Yield(); throw new InvalidOperationException("trigger boom"); });
+        var service = new TestService(trigger.Object, Noop);
 
         // BackgroundService.StartAsync returns ExecuteTask itself when it has already completed, so
         // depending on scheduling the failure surfaces from either call.
@@ -353,14 +357,17 @@ public class TriggeredHostedServiceTests
     public async Task Fatal_failure_waits_for_the_trigger_to_stop_before_propagating()
     {
         var triggerStopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var trigger = new DelegateTrigger(async (execute, ct) =>
-        {
-            await execute(ct);                                  // starts the failing iteration
-            await Task.Delay(Timeout.Infinite, ct).ContinueWith(_ => { }, TaskScheduler.Default);
-            await triggerStopped.Task;                          // takes its time to wind down after cancellation
-        });
+        var trigger = new Mock<IServiceTrigger>();
+        trigger
+            .Setup(t => t.StartAsync(It.IsAny<Func<CancellationToken, Task<Firing>>>(), It.IsAny<CancellationToken>()))
+            .Returns(async (Func<CancellationToken, Task<Firing>> execute, CancellationToken ct) =>
+            {
+                await execute(ct);                              // starts the failing iteration
+                await Task.Delay(Timeout.Infinite, ct).ContinueWith(_ => { }, TaskScheduler.Default);
+                await triggerStopped.Task;                      // takes its time to wind down after cancellation
+            });
         var service = new TestService(
-            trigger,
+            trigger.Object,
             async _ => { await Task.Yield(); throw new InvalidOperationException("boom"); },
             failureHandling: FailureHandlingMode.StopOnFailure);
 
