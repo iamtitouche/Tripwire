@@ -19,12 +19,39 @@ public class CompositeTriggerTests
     }
 
     [Fact]
-    public void Rejects_invalid_arguments()
+    public void Constructor_throws_when_triggers_is_null()
     {
-        Assert.Equal("triggers", Assert.Throws<ArgumentNullException>(() => new CompositeTrigger(null!)).ParamName);
-        Assert.Equal("triggers", Assert.Throws<ArgumentException>(() => new CompositeTrigger()).ParamName);
-        Assert.Equal("triggers", Assert.Throws<ArgumentException>(() => new CompositeTrigger(new OnStartupTrigger(), null!)).ParamName);
-        Assert.Equal("triggers", Assert.Throws<ArgumentException>(() => new CompositeTrigger(null!, new OnStartupTrigger())).ParamName);
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => new CompositeTrigger(null!));
+
+        Assert.Equal("triggers", exception.ParamName);
+    }
+
+    [Fact]
+    public void Constructor_throws_when_triggers_is_empty()
+    {
+        var exception = Assert.Throws<ArgumentException>(
+            () => new CompositeTrigger());
+
+        Assert.Equal("triggers", exception.ParamName);
+    }
+
+    [Fact]
+    public void Constructor_throws_when_triggers_contains_null_at_end()
+    {
+        var exception = Assert.Throws<ArgumentException>(
+            () => new CompositeTrigger(new OnStartupTrigger(), null!));
+
+        Assert.Equal("triggers", exception.ParamName);
+    }
+
+    [Fact]
+    public void Constructor_throws_when_triggers_contains_null_at_start()
+    {
+        var exception = Assert.Throws<ArgumentException>(
+            () => new CompositeTrigger(null!, new OnStartupTrigger()));
+
+        Assert.Equal("triggers", exception.ParamName);
     }
 
     [Fact]
