@@ -279,6 +279,48 @@ public class TriggeredHostedServiceTests
     }
 
     [Fact]
+    public async Task Iteration_outlives_a_composite_trigger_whose_children_have_all_completed()
+    {
+        // A child that fires once, then completes, like OnStartupTrigger.
+        var child = new Mock<IServiceTrigger>();
+        child
+            .Setup(t => t.StartAsync(It.IsAny<Func<CancellationToken, Task<Firing>>>(), It.IsAny<CancellationToken>()))
+            .Returns(async (Func<CancellationToken, Task<Firing>> execute, CancellationToken ct) => { await execute(ct); });
+
+        // The service keeps the task returned by StartAsync to itself: the composite is wrapped to get it, so that
+        // the assertion runs only once the composite's finally block, where the cancellation happens, has run.
+        var composite = new CompositeTrigger(child.Object);
+        Task? compositeRun = null;
+        var trigger = new Mock<IServiceTrigger>();
+        trigger
+            .Setup(t => t.StartAsync(It.IsAny<Func<CancellationToken, Task<Firing>>>(), It.IsAny<CancellationToken>()))
+            .Returns((Func<CancellationToken, Task<Firing>> execute, CancellationToken ct) => compositeRun = composite.StartAsync(execute, ct));
+
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var iterationToken = CancellationToken.None;
+        var completed = false;
+        var service = new TestService(trigger.Object, async ct =>
+        {
+            iterationToken = ct;
+            started.SetResult();
+            await gate.Task.WaitAsync(ct);
+            completed = true;
+        });
+
+        await service.StartAsync(CancellationToken.None);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await compositeRun!.WaitAsync(TimeSpan.FromSeconds(2));
+
+        // The trigger completing normally is not a shutdown: the running iteration must not be cancelled.
+        Assert.False(iterationToken.IsCancellationRequested);
+
+        gate.SetResult();
+        await service.ExecuteTask!.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.True(completed);
+    }
+
+    [Fact]
     public async Task Pending_retry_is_interrupted_cleanly_by_shutdown()
     {
         var timeProvider = new FakeTimeProvider();

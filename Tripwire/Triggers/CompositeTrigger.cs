@@ -54,10 +54,11 @@ public class CompositeTrigger : IServiceTrigger
                 await completed;
             }
         }
-        finally
+        catch
         {
             linked.Cancel();
             await Task.WhenAll(running).ContinueWith(_ => { }, TaskScheduler.Default);
+            throw;
         }
     }
 }
