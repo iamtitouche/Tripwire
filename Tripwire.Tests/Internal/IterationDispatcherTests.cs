@@ -268,6 +268,7 @@ public class IterationDispatcherTests
 
         await h.DispatchAsync();
         var queued = await h.DispatchAsync(pending.Token);
+        await Wait.UntilAsync(() => body.Started == 1);
         await pending.CancelAsync();
 
         await queued.Completion.WaitAsync(TimeSpan.FromSeconds(2));
@@ -430,6 +431,7 @@ public class IterationDispatcherTests
         using var h = new Harness(OverlapPolicy.Concurrent(1), body.RunAsync);
 
         await h.DispatchAsync();
+        await Wait.UntilAsync(() => body.Started == 1);
         body.ReleaseCurrent();
         await h.WhenEmptyAsync();
 

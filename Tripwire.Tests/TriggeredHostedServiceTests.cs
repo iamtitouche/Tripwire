@@ -63,6 +63,34 @@ public class TriggeredHostedServiceTests
     }
 
     [Fact]
+    public async Task Firing_returns_before_a_synchronous_iteration_completes()
+    {
+        // An iteration that does its work synchronously, held until released.
+        using var gate = new ManualResetEventSlim();
+        var (trigger, service) = await StartAsync(_ =>
+        {
+            gate.Wait();
+            return Task.CompletedTask;
+        });
+
+        // Fired off the test thread: if the iteration runs inline, the firing only returns once it is released.
+        var firing = Task.Run(trigger.FireAsync);
+
+        try
+        {
+            var returned = await Task.WhenAny(firing, Task.Delay(TimeSpan.FromSeconds(2))) == firing;
+
+            Assert.True(returned, "The firing is blocked by the synchronous iteration.");
+        }
+        finally
+        {
+            gate.Set();
+            await firing;
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
     public async Task Queued_firings_are_dropped_on_stop_and_the_running_iteration_completes()
     {
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -321,6 +349,34 @@ public class TriggeredHostedServiceTests
     }
 
     [Fact]
+    public async Task Synchronous_startup_iteration_does_not_block_the_service_start()
+    {
+        // An iteration that does its work synchronously, as the README example does, held until released.
+        using var gate = new ManualResetEventSlim();
+        var service = new TestService(new OnStartupTrigger(), _ =>
+        {
+            gate.Wait();
+            return Task.CompletedTask;
+        });
+
+        // Started off the test thread: if the iteration runs inline, StartAsync only returns once it is released.
+        var start = Task.Run(() => service.StartAsync(CancellationToken.None));
+
+        try
+        {
+            var returned = await Task.WhenAny(start, Task.Delay(TimeSpan.FromSeconds(2))) == start;
+
+            Assert.True(returned, "StartAsync is blocked by the synchronous startup iteration.");
+        }
+        finally
+        {
+            gate.Set();
+            await start;
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
     public async Task Pending_retry_is_interrupted_cleanly_by_shutdown()
     {
         var timeProvider = new FakeTimeProvider();
@@ -543,8 +599,13 @@ public class TriggeredHostedServiceTests
             OverlapPolicy.Concurrent(2), FailureHandlingMode.Retry(maxAttempts: 3, delay: TimeSpan.FromSeconds(1)), timeProvider: timeProvider);
 
         await trigger.FireAsync();                     // failure: retry in 1 s
-        timeProvider.Advance(TimeSpan.FromSeconds(1));         // the retry starts
-        await Wait.UntilAsync(() => inFlight == 1);
+        // The iteration runs on the thread pool: the retry delay may not be scheduled yet, so the clock is
+        // advanced until the retry starts.
+        await Wait.UntilAsync(() =>
+        {
+            timeProvider.Advance(TimeSpan.FromSeconds(1));
+            return inFlight == 1;
+        });
 
         await trigger.FireAsync();                     // a regular firing starts alongside
         await Wait.UntilAsync(() => inFlight == 2);

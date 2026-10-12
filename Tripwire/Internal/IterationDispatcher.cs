@@ -162,14 +162,18 @@ internal sealed class IterationDispatcher : IDisposable
     }
 
     /// <summary>
-    /// Runs an iteration holding a slot. A fatal exception is reported instead of thrown,
-    /// so the tracked task never faults.
+    /// Runs an iteration holding a slot, on the thread pool: an iteration that does its work synchronously
+    /// must not block the trigger that fired it, nor the host's startup on .NET 8 and 9, where
+    /// <see cref="BackgroundService.StartAsync"/> runs ExecuteAsync inline. A fatal exception is reported
+    /// instead of thrown, so the tracked task never faults.
     /// </summary>
     private async Task RunAsync(CancellationToken cancellationToken)
     {
         try
         {
-            await _iteration(cancellationToken);
+            // CancellationToken.None: a firing accepted here always reaches the iteration, which observes the
+            // token itself, rather than being turned into a cancellation that would not count as an iteration.
+            await Task.Run(() => _iteration(cancellationToken), CancellationToken.None);
         }
         catch (Exception ex)
         {
